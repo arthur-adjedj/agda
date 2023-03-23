@@ -237,6 +237,7 @@ data PostScopeState = PostScopeState
   , stPostInteractionPoints   :: !InteractionPoints -- scope checker first
   , stPostAwakeConstraints    :: !Constraints
   , stPostSleepingConstraints :: !Constraints
+  , stPostCumulativeConstraints :: !Constraints
   , stPostDirty               :: !Bool -- local
     -- ^ Dirty when a constraint is added, used to prevent pointer update.
     -- Currently unused.
@@ -421,6 +422,7 @@ initPostScopeState = PostScopeState
   , stPostInteractionPoints    = empty
   , stPostAwakeConstraints     = []
   , stPostSleepingConstraints  = []
+  , stPostCumulativeConstraints= []
   , stPostDirty                = False
   , stPostOccursCheckDefs      = Set.empty
   , stPostSignature            = emptySignature
@@ -632,6 +634,16 @@ stSleepingConstraints :: Lens' Constraints TCState
 stSleepingConstraints f s =
   f (stPostSleepingConstraints (stPostScopeState s)) <&>
   \x -> s {stPostScopeState = (stPostScopeState s) {stPostSleepingConstraints = x}}
+
+stCumulativeConstraints :: Lens' Constraints TCState
+stCumulativeConstraints f s = 
+  f (stPostCumulativeConstraints (stPostScopeState s)) <&>
+  \x -> s {stPostScopeState = (stPostScopeState s) {stPostCumulativeConstraints = x}}
+
+addCumulativeConstraint :: Set ProblemId -> Constraint -> TCM () 
+addCumulativeConstraint pids c = do
+  c <- buildClosure c
+  modifyTC $ over stCumulativeConstraints ((PConstr pids neverUnblock c) :) 
 
 stDirty :: Lens' Bool TCState
 stDirty f s =

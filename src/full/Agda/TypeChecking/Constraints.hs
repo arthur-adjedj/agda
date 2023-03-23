@@ -14,6 +14,7 @@ import Data.Either
 import Agda.Syntax.Common
 import Agda.Syntax.Internal
 
+import Agda.Interaction.Options.Base
 import Agda.TypeChecking.Monad
 import Agda.TypeChecking.InstanceArguments
 import Agda.TypeChecking.Pretty
@@ -57,6 +58,7 @@ instance MonadConstraint TCM where
 
 addConstraintTCM :: Blocker -> Constraint -> TCM ()
 addConstraintTCM unblock c = do
+      cumulativity <- optCumulativity <$> pragmaOptions
       pids <- asksTC envActiveProblems
       reportSDoc "tc.constr.add" 20 $ hsep
         [ "adding constraint"
@@ -68,6 +70,7 @@ addConstraintTCM unblock c = do
       whenM (anyM (Set.toList $ allBlockingMetas unblock) isInstantiatedMeta) __IMPOSSIBLE__
       -- Need to reduce to reveal possibly blocking metas
       c <- reduce =<< instantiateFull c
+      when (isLvl c && cumulativity) $ addCumulativeConstraint pids c
       caseMaybeM (simpl c) {-no-} (addConstraint' unblock c) $ {-yes-} \ cs -> do
           reportSDoc "tc.constr.add" 20 $ "  simplified:" <+> prettyList (map prettyTCM cs)
           mapM_ solveConstraint_ cs
