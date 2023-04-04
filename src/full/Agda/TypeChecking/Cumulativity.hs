@@ -1,7 +1,7 @@
 module Agda.TypeChecking.Cumulativity where
 
 import Data.Maybe
-import Data.List ((\\))
+import Data.List ((\\), delete)
 import Data.Traversable (Traversable)
 import Control.Monad
 
@@ -76,14 +76,10 @@ gain (clauses,(_,l)) = l - foldl (flip $ max . snd) 0 clauses
 max_gain :: [Horn] -> Integer
 max_gain l = foldl (flip $ max . gain) 0 l
 
-type Model = ([LvlVariable],LvlVariable -> NInf)
-
-is_model_of :: [LvlVariable] -> Model -> Bool 
-is_model_of v1 (v2,_) = v1 == v2
-
+type Model = LvlVariable -> NInf
 
 is_satisfied_by :: Horn -> Model -> Bool
-is_satisfied_by (x,(y,l)) (_,f) =
+is_satisfied_by (x,(y,l)) f =
     if all (\(xi,ki) -> (Nat ki) <= f xi) x 
     then (Nat l) <= f y
     else True
@@ -92,8 +88,8 @@ to_nat :: NInf -> Integer
 to_nat (Nat n) = n
 to_nat _ = __IMPOSSIBLE__
 
-lemma_3_1 :: Model -> Horn -> Bool
-lemma_3_1 (v,f) (x,(y,l)) =
+lemma_3_1 :: (LvlVariable -> NInf) -> Horn -> Bool
+lemma_3_1 f (x,(y,l)) =
     let w = filter ((/= NInf) . f. fst) x
     in case w of
         [] -> f y == NInf
@@ -105,20 +101,33 @@ lemma_3_1 (v,f) (x,(y,l)) =
                     x
             in k0 < 0 || Nat (l+k0) <= f y
 
---lemma_3_3 v sc w trans f, given W is a strict subset of V,
+--lemma_3_3 v sc trans w f, given W is a strict subset of V,
 -- and that for all f models, trans f is the least g>=f model of SC|W, and f a model such that f(v-w) \subset N, computes the least model of SCvW
-lemma_3_3 :: [LvlVariable] -> [Horn] -> [LvlVariable] -> ((LvlVariable -> NInf) -> LvlVariable -> NInf) -> Model -> Maybe Model
-lemma_3_3 v sc w trans f = do
+lemma_3_3 :: [LvlVariable] -> [Horn] -> (Model -> Model) -> [LvlVariable]  -> Model -> Maybe Model
+lemma_3_3 v sc trans w f = do
     -- W \subset V strict, f : V -> NInf and f(v-w) \subset N
-    guard $ isSublistOf w v && v /= w && is_model_of v f && all ((NInf /=) . snd f) (v \\ w)
-    let fw      = (w,snd f)
+    guard $ isSublistOf w v && v /= w && all ((NInf /=) . f) (v \\ w)
+    let fw      = (w,f)
         maxgain = max_gain sc
         -- gf = least g>=f that models SC|w 
         gf      = trans $ snd fw
         -- Maxgain + max(f(V − W))
-        maxf_v_w = maxgain + foldl (flip $ max . to_nat . snd f) 0 (v \\ w)
+        maxf_v_w = maxgain + foldl (flip $ max . to_nat . f) 0 (v \\ w)
         -- Sum for w \in W of max(0,maxf_v_w-gf(w))
         mgf = foldl (\acc w -> acc + (max 0 $ (maxf_v_w - (to_nat $ gf w)))) 0 w
+        base_case = Just $ \x -> if elem x w then gf x else f x
     if (mgf == 0)
-    then Just (v,\x -> if elem x w then gf x else snd f x)
-    else Nothing
+    then base_case
+    else 
+        -- List of clauses in SCvW - SC|W not satisfied by gf    
+        let leftovers = filter (\(x,(y,l)) -> elem y w && any (not . (flip elem w) . fst) x) sc
+            unsat_leftovers = filter (lemma_3_1 gf) leftovers
+        in case unsat_leftovers of
+            [] ->  base_case
+            _  -> 
+                let w0 = __IMPOSSIBLE__
+                in let f' = \x -> if x == w0 then __IMPOSSIBLE__
+                        else if elem x w 
+                        then gf x 
+                        else f x
+                in lemma_3_3 v sc trans (delete w0 w) f'
