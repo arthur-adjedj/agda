@@ -586,6 +586,7 @@ library
       Agda.TypeChecking.Coverage.SplitTree
       Agda.TypeChecking.Coverage.SplitClause
       Agda.TypeChecking.Coverage.Cubical
+      Agda.TypeChecking.Cumulativity
       Agda.TypeChecking.Datatypes
       Agda.TypeChecking.DeadCode
       Agda.TypeChecking.DisplayForm
