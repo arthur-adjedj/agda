@@ -8,6 +8,7 @@ import qualified Data.Map as Map (map,fold, foldr')
 import Data.Set (Set)
 import qualified Data.Set as Set (union, fromList, insert, null, intersection, unions, empty)
 import Control.Monad
+import qualified Data.Set as Set (Set, fromList, insert, empty, union, unions, intersection)
 
 import Agda.Interaction.Options
 
@@ -29,6 +30,8 @@ import Control.Monad.Except
 remove_dups :: (Ord a) => [a] -> [a]
 remove_dups = map head . group . sort
 
+isEmpty :: (Eq a) => Set.Set a -> Bool
+isEmpty = (==Set.empty)
 
 union :: (Ord k,Ord a) => Map k a -> Map k a -> Map k a
 union = unionWith max 
