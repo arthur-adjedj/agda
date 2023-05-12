@@ -74,6 +74,7 @@ import Agda.Utils.Update
 import qualified Agda.Utils.SmallSet as SmallSet
 
 import Agda.Utils.Impossible
+import Agda.TypeChecking.Cumulativity (solveCumulativeConstraints)
 
 -- | Cached checkDecl
 checkDeclCached :: A.Declaration -> TCM ()
@@ -259,6 +260,9 @@ mutualChecks mi d ds mid names = do
   -- to avoid making the injectivity checker loop.
   localTC (\ e -> e { envMutualBlock = Just mid }) $
     checkTermination_ d
+  tcstate <- getTCState
+  let foo = map (clValue . theConstraint) $ (^.) tcstate stCumulativeConstraints 
+  solveCumulativeConstraints foo
   revisitRecordPatternTranslation nameList -- Andreas, 2016-11-19 issue #2308
 
   mapM_ checkIApplyConfluence_ nameList

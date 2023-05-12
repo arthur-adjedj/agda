@@ -4,7 +4,7 @@ import Data.Maybe
 import Data.List ((\\), delete, intersect, group, sort, concat)
 import Data.Traversable (Traversable)
 import Data.Map (Map, (!), keys, unionWith, foldrWithKey, insert, empty)
-import qualified Data.Map as Map (map,fold)
+import qualified Data.Map as Map (map,fold, foldr')
 import Data.Set (Set)
 import qualified Data.Set as Set (union, fromList, insert, null, intersection, unions, empty)
 import Control.Monad
@@ -20,6 +20,8 @@ import Agda.Utils.Impossible
 import Control.Exception (assert)
 import Agda.TypeChecking.Primitive (Lvl)
 import Debug.Trace (trace)
+import Agda.TypeChecking.Positivity (OccEnv(vars))
+import Control.Monad.Except
 
 {-# OPTIONS_GHC -ddump-simpl-stats #-}
 
@@ -173,4 +175,7 @@ solveCumulativeConstraints l = do
     let toLevelEqConstraints = map (\ (LevelCmp c l1 l2) -> cmp_to_eq c l1 l2) l
     let horns = concat $ map to_horns toLevelEqConstraints
     let vars = Set.fromList $ ((concatMap (map fst) (map (\h -> (snd h):(fst h)) horns)))
-    sorry
+    let model = thm32 vars Set.empty horns empty
+    unless (Map.foldr' max (Nat 0) model /= NInf) $ do
+        typeError $ GenericError "Loop detected, cumulative constraints are not satisfiable"
+    return ()
