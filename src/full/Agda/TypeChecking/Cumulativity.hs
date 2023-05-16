@@ -8,7 +8,7 @@ import qualified Data.Map as Map (map,fold, foldr')
 import Data.Set (Set)
 import qualified Data.Set as Set (union, fromList, insert, null, intersection, unions, empty)
 import Control.Monad
-import qualified Data.Set as Set (Set, fromList, insert, empty, union, unions, intersection)
+import qualified Data.Set as Set (Set, fromList, insert, empty, union, unions, intersection, foldr)
 
 import Agda.Interaction.Options
 
@@ -172,13 +172,15 @@ thm32 v u c f =
             if Set.null w' then g else
             thm32 v (Set.unions [u,w,w']) c g'
 
+empty_model :: Set.Set LvlVariable -> Model
+empty_model = Set.foldr (\x -> insert x (Nat 0)) empty
 
 solveCumulativeConstraints :: [Constraint] -> TCM ()
 solveCumulativeConstraints l = do
     let toLevelEqConstraints = map (\ (LevelCmp c l1 l2) -> cmp_to_eq c l1 l2) l
     let horns = concat $ map to_horns toLevelEqConstraints
     let vars = Set.fromList $ ((concatMap (map fst) (map (\h -> (snd h):(fst h)) horns)))
-    let model = thm32 vars Set.empty horns empty
+    let model = thm32 vars Set.empty horns $ empty_model vars
     unless (Map.foldr' max (Nat 0) model /= NInf) $ do
         typeError $ GenericError "Loop detected, cumulative constraints are not satisfiable"
     return ()
